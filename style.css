@@ -1,0 +1,19 @@
+.platBorder {
+  stroke: black;
+  stroke-width: 1;
+}
+
+.mapBorder {
+  stroke: black;
+  stroke-width: 3;
+  fill: none;
+}
+
+.platColor {
+  stroke: none;
+}
+
+label {
+  
+  font-size: 8pt !important;
+}
