@@ -1,15 +1,97 @@
 var patentConverter = {
-  getTownshipMatrix: function(patentsJSON){
-    var township = generateBlankTownship();
-  
+  getElasticMatrix: function(patentsJSON){
+  var twpMeas = [];
+  var rng = [];
+  var masterMatrix = [];
+  //"022N - 002W"
+  parseTwpMeasAndRange();
+  sortTwpMeasAndRange();
+  fillMasterMatrix();
+  var flatMatrix = flattenMasterMatrix();
+  return mapPatents(flatMatrix);
+
+  function parseTwpMeasAndRange(){
     patentsJSON.forEach(function(pat){
-      assignSquares(pat, township);
+      var twpRange = pat.Twp_Rng.split(" - ");
+      var thisTwpMeas = twpRange[0].charAt(3) == "N" ? parseInt(twpRange[0].slice(0,3)) : (parseInt(twpRange[0].slice(0,3)) * -1);
+      var thisRng = twpRange[1].charAt(3) == "E" ? parseInt(twpRange[1].slice(0,3)) : (parseInt(twpRange[1].slice(0,3)) * -1);
+      twpMeas.push(thisTwpMeas);
+      rng.push(thisRng);
     });
-    
-    detectPlats(township, patentsJSON);
+  }
+  function sortTwpMeasAndRange(){
+    var uniq = [...new Set(twpMeas)];
+    twpMeas = uniq;
+    twpMeas.sort(function(a, b){return b - a});
+    uniq = [...new Set(rng)];
+    rng = uniq;
+    rng.sort(function(a, b){return a - b});
+  }
+
+  function fillMasterMatrix(){
+    twpMeas.forEach(function(thisTwpMeas){
+      var thisRow = [];
+      rng.forEach(function(thisRng){
+        //thisRow.push(convertIntsToTwpRng(thisTwpMeas, thisRng));
+        var thisTwp = convertIntsToTwpRng(thisTwpMeas, thisRng);
+        var matchingPatents = patentsJSON.filter(function(pat){
+          return pat.Twp_Rng == thisTwp;
+        });
+        thisRow.push(getTownshipMatrix(matchingPatents, thisTwp));
+      });
+      masterMatrix.push(thisRow);
+    });
+  }
+
+  function flattenMasterMatrix(){
+    var flattenedMatrix = [];
+/*
+    masterMatrix.forEach(mmrow){
+      for(i=0;i<24;i++){
+        var totalRow = [];
+        mmrow.forEach(mtr){
+            mtr[i].forEach(sq){
+              totalRow.push(sq);
+            }
+        }
+        flattenedMatrix.push(totalRow);
+      }
+    }*/
+    masterMatrix.forEach(function(mmrow){
+      for(i=0;i<24;i++){
+        var totalRow = [];
+        mmrow.forEach(function(mtr){
+          mtr[i].forEach(function(sq){
+            totalRow.push(sq);
+          });
+        });
+        flattenedMatrix.push(totalRow);
+      }
+    });
+
+    return flattenedMatrix;
+  }
+
+  function convertIntsToTwpRng(thisTwp, thisRng){
+    var twpRng = "";
+    var convertedTwp = "";
+    var convertedRng = "";
+
+    convertedTwp = Math.abs(thisTwp).toString() + (thisTwp > 0 ? "N" : "S");
+    convertedRng = Math.abs(thisRng).toString() + (thisRng > 0 ? "E" : "W");
+    convertedTwp = convertedTwp.padStart(4,0);
+    convertedRng = convertedRng.padStart(4,0);
+
+    twpRng = convertedTwp + " - " + convertedRng;
+
+    return twpRng;
+  }
+
+  function getTownshipMatrix(patentsJSON, thisTwpRange){
+    var township = generateBlankTownship();
 
     return township;
-    
+
     function generateBlankTownship() {
       var township = [[],
                       [],
@@ -18,22 +100,22 @@ var patentConverter = {
                       [],
                       []];
       for (var i = 6; i > 0; i--) {
-        township[0].push(generateSection(i));
+        township[0].push(generateSection(i, thisTwpRange));
       }
       for (var i = 7; i < 13; i++) {
-        township[1].push(generateSection(i));
+        township[1].push(generateSection(i, thisTwpRange));
       }
       for (var i = 18; i > 12; i--) {
-        township[2].push(generateSection(i));
+        township[2].push(generateSection(i, thisTwpRange));
       }
       for (var i = 19; i < 25; i++) {
-        township[3].push(generateSection(i));
+        township[3].push(generateSection(i, thisTwpRange));
       }
       for (var i = 30; i > 24; i--) {
-        township[4].push(generateSection(i));
+        township[4].push(generateSection(i, thisTwpRange));
       }
       for (var i = 31; i < 37; i++) {
-        township[5].push(generateSection(i));
+        township[5].push(generateSection(i, thisTwpRange));
       }
 
       var townshipSquares = [];
@@ -62,7 +144,7 @@ var patentConverter = {
       return townshipSquares;
     }
 
-    function generateSection(secNum) {
+    function generateSection(secNum, thisTwpRange) {
       var eightCount = 0;
       var fourCount = 0;
       var twoCount = 0;
@@ -87,7 +169,7 @@ var patentConverter = {
         if(i > 0)
           quot[1] = flip(quot[1]);
 
-        squares.push(getSquare(quot[0].concat(quot[1]), quot[2].concat(quot[3]), secNum));
+        squares.push(getSquare(quot[0].concat(quot[1]), quot[2].concat(quot[3]), secNum, thisTwpRange));
         if(squares.length == 4){
           squareMatrix.push(squares);
           squares = [];
@@ -114,11 +196,12 @@ var patentConverter = {
       return flipped;
     }
 
-    function getSquare(position, quarter, section){
+    function getSquare(position, quarter, section, thisTwpRange){
       return {
         position: position,
         quarter: quarter,
         section: section,
+        township: thisTwpRange,
         patentID: null,
         platID: null,
         borders: {
@@ -131,28 +214,41 @@ var patentConverter = {
       };
     }
 
-    function assignSquares(pat, township) {
+
+  }
+
+  function mapPatents(matrix){
+
+    patentsJSON.forEach(function(pat){
+      assignSquares(pat, matrix);
+    });
+
+    detectPlats(matrix, patentsJSON);
+
+    return matrix;
+
+    function assignSquares(pat, matrix) {
       var secNum = pat["Sec"];
       var quot = pat["Aliquots"];
       var dirs = quot ? parseAliquot(quot) : null;
 
       //If quot empty, it is a full section.
       if (quot == null || quot == "") {
-        township.forEach(function(row){
+        matrix.forEach(function(row){
           row.forEach(function(sq){
-            if(sq.section == secNum){
+            if(sq.township == pat.Twp_Rng && sq.section == secNum){
               if(sq.patentID != null)
                 sq.conflict = true;
               sq.patentID = pat._id;
-            }  
+            }
           });
         });
 
         //If only one letter-group, either a quarter or 2 quarters (half)
       } else if (!dirs[1]) {
-        township.forEach(function(row){
+        matrix.forEach(function(row){
           row.forEach(function(sq){
-            if(sq.section == secNum && sq.quarter.indexOf(dirs[0]) !== -1){
+            if(sq.township == pat.Twp_Rng && sq.section == secNum && sq.quarter.indexOf(dirs[0]) !== -1){
               if(sq.patentID != null)
                 sq.conflict = true;
               sq.patentID = pat._id;
@@ -162,82 +258,82 @@ var patentConverter = {
 
         //Otherwise, we're dealing with fragments in squares
       } else {
-        township.forEach(function(row){
+        matrix.forEach(function(row){
           row.forEach(function(sq){
-            if(sq.section == secNum && sq.quarter.indexOf(dirs[1]) !== -1 && sq.position.indexOf(dirs[0]) !== -1){
+            if(sq.township == pat.Twp_Rng && sq.section == secNum && sq.quarter.indexOf(dirs[1]) !== -1 && sq.position.indexOf(dirs[0]) !== -1){
               if(sq.patentID != null)
                 sq.conflict = true;
               sq.patentID = pat._id;
-            } 
+            }
           });
         });
 
       }
 
-      return township;
+      return matrix;
     }
 
     function detectPlats(township, patents){
       var platID = 0;
-      
+
       for(var y=0;y<township.length;y++){
         for(var x=0;x<township[y].length;x++){
           var thisSquare = township[y][x];
-          
+
           //Only bother checking if it has a patent
           if(thisSquare.patentID != null){
             var thisPatent = getPatByID(thisSquare.patentID, patents);
-          
+
               //Check left if possible and left square has a patent
             if(x > 0){
               var leftSquare = township[y][x - 1];
               var nextLeftSquare = x > 1 ? township[y][x - 2] : null;
               assignPlat(thisSquare, thisPatent, leftSquare, nextLeftSquare, patents, "w", platID);
             }
-            
+
             //check up if possible
             if(y > 0){
               var topSquare = township[y - 1][x];
               var nextTopSquare = y > 1 ? township[y - 2][x] : null;
               assignPlat(thisSquare, thisPatent, topSquare, nextTopSquare, patents, "n", platID);
             }
-            
+
             //check right if possible
             if(x < township[y].length - 1){
               var rightSquare = township[y][x + 1];
               var nextRightSquare = x < township[y].length - 2 ? township[y][x + 2] : null;
               assignPlat(thisSquare, thisPatent, rightSquare, nextRightSquare, patents, "e", platID);
             }
-            
+
             //Check down if possible
             if(y < township.length - 1){
               var bottomSquare = township[y + 1][x];
               var nextBottomSquare = y < township.length - 2 ? township[y + 2][x] : null;
               assignPlat(thisSquare, thisPatent, bottomSquare, nextBottomSquare, patents, "s", platID);
             }
-            
+
             //If no platID assigned yet, assign one
             if(thisSquare.platID == null){
               thisSquare.platID = platID;
             }
-              
-            
+
+
             //If new platID has been used, iterate to new one for next plat
             if(thisSquare.platID == platID)
               platID++;
-            
+
           }
         }
       }
-      
+
     }
-    
+
     function assignPlat(thisSquare, thisPatent, nextSquare, nextNextSquare, patents, border, platID){
       var nextPatent = nextSquare.patentID ? getPatByID(nextSquare.patentID, patents) : null;
       if(nextPatent != null && thisPatent.Names == nextPatent.Names){
         if(nextSquare.platID != null){
           thisSquare.platID = nextSquare.platID;
-        } 
+        }
         else {
           //TOADD: Check the next one over, if IT matches, then get THAT platID.
           if(nextNextSquare != null){
@@ -246,7 +342,7 @@ var patentConverter = {
               if(nextNextSquare.platID != null)
                 thisSquare.platID = nextNextSquare.platID;
             }
-              
+
           }
           if(thisSquare.platID == null)
             thisSquare.platID = platID;
@@ -256,13 +352,13 @@ var patentConverter = {
       else
         thisSquare.borders[border] = true;
     }
-   
+
     function getPatByID(id, patents){
       return patents.find(function(p){
         return p._id == id;
       });
     }
-    
+
     function parseAliquot(quot) {
       //Assuming correct input, which is stupid
       //Get first cardinal direction (fraction unneeded - 2 letters = quarter, 1 = half)
@@ -315,5 +411,8 @@ var patentConverter = {
 
       return [dir1, dir2];
     }
-    } 
+  }
+
+
+  }
 };

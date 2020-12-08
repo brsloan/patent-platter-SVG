@@ -1,5 +1,5 @@
 function platTownship(patents){
-  var mapMatrix = patentConverter.getTownshipMatrix(patents);
+  var mapMatrix = patentConverter.getElasticMatrix(patents);
   var map = document.getElementById("map");
   map.setAttribute("width", mapMatrix[0].length * scale);
   map.setAttribute("height", mapMatrix.length * scale);
@@ -8,15 +8,16 @@ function platTownship(patents){
   mapBorder.setAttribute("height", mapMatrix.length * scale);
   mapBorder.classList.add("mapBorder");
   map.appendChild(mapBorder);
-  
+
   drawPlatBorders(map, mapMatrix);
   colorPlats(map, mapMatrix, patents);
   labelPlats(map, mapMatrix, patents);
+  updateSaveSvgLink(map, "patent_map.svg");
 }
 
 function labelPlats(map, mapMatrix, patents){
   var plats = getUniquePlats(mapMatrix);
-  
+
   plats.forEach(function(plat){
     var width = getPlatWidth(plat.x, plat.y, mapMatrix, 1);
     var height = getPlatHeight(plat.x, plat.y, mapMatrix, 1);
@@ -24,7 +25,7 @@ function labelPlats(map, mapMatrix, patents){
     var name = patents.find(function(pat){
       return pat._id == sq.patentID;
     }).Names.split(",")[0];
-    
+
     if(width >= height){
       //Write label horizontally
       var label = document.createElementNS("http://www.w3.org/2000/svg", 'text');
@@ -49,8 +50,8 @@ function labelPlats(map, mapMatrix, patents){
       map.appendChild(label);
     }
   });
-  
-  
+
+
 }
 
 function getPlatWidth(sqX, sqY, mapMatrix, width){
@@ -85,15 +86,15 @@ function colorPlats(map, mapMatrix, patents){
     var color = selectColor(i, names.length);
     colors.push(color);
   }
-  
+
   for(var y=0;y < mapMatrix.length;y++){
     for(var x=0; x < mapMatrix[y].length; x++){
-      
+
       var patID = mapMatrix[y][x].patentID;
       if(patID != null){
         var patent = getPatByID(patID, patents);
       var color = colors[names.indexOf(patent.Names)];
-      
+
       var rec = document.createElementNS("http://www.w3.org/2000/svg", 'rect');
       rec.setAttribute("x", x * scale);
       rec.setAttribute("y", y * scale);
@@ -103,12 +104,12 @@ function colorPlats(map, mapMatrix, patents){
       rec.setAttribute("fill", color);
       map.appendChild(rec);
       }
-      
-      
+
+
     }
   }
-  
-  
+
+
 }
 
 function selectColor(colorNum, colors) {
@@ -120,7 +121,7 @@ function drawPlatBorders(map, mapMatrix){
     for(var y=0;y<mapMatrix.length;y++){
     for(var x=0;x<mapMatrix[y].length;x++){
       var sq = mapMatrix[y][x];
-      
+
       if(sq.borders.n){
         var line = document.createElementNS("http://www.w3.org/2000/svg", 'line');
         line.setAttribute("x1", x * scale);
@@ -157,8 +158,8 @@ function drawPlatBorders(map, mapMatrix){
         line.classList.add("platBorder");
         map.appendChild(line);
       }
-        
-      
+
+
     }
   }
 }
@@ -166,7 +167,7 @@ function drawPlatBorders(map, mapMatrix){
 function getUniquePlats(map){
   var plats = [];
   var platObjs = [];
-  
+
   for(var y=0;y < map.length; y++){
     for(var x=0; x < map[y].length; x++){
       var plat = map[y][x].platID;
@@ -177,10 +178,10 @@ function getUniquePlats(map){
           x: x,
           y: y
         });
-      } 
+      }
     }
   }
-  
+
   return platObjs;
 }
 
@@ -190,7 +191,7 @@ function getUniquePatentNames(patents) {
   });
 
   var uniqueNames = [];
-  
+
   names.forEach(function(name){
     if(uniqueNames.indexOf(name) == -1)
       uniqueNames.push(name);
@@ -202,4 +203,16 @@ function getPatByID(id, patents){
   return patents.find(function(p){
     return p._id == id;
   });
+}
+
+
+function updateSaveSvgLink(svgEl, name) {
+    svgEl.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    var svgData = svgEl.outerHTML;
+    var preface = '<?xml version="1.0" standalone="no"?>\r\n';
+    var svgBlob = new Blob([preface, svgData], {type:"image/svg+xml;charset=utf-8"});
+    var svgUrl = URL.createObjectURL(svgBlob);
+    var downloadLink = document.getElementById("downloadLink");
+    downloadLink.href = svgUrl;
+    downloadLink.download = name;
 }
