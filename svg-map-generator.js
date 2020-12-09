@@ -12,7 +12,6 @@ function platTownship(patents){
   drawPlatBorders(map, mapMatrix);
   colorPlats(map, mapMatrix, patents);
   labelPlats(map, mapMatrix, patents);
-  //saveSVG(map, "patent_map.svg");
 }
 
 function labelPlats(map, mapMatrix, patents){
@@ -102,6 +101,10 @@ function colorPlats(map, mapMatrix, patents){
       rec.setAttribute("height", scale);
       rec.classList.add("platColor");
       rec.setAttribute("fill", color);
+      rec.dataset.patID = patID;
+      var title = document.createElementNS("http://www.w3.org/2000/svg", 'title');
+      title.textContent = patent.Names + " - " + patent.Date + "\n Accession: " + patent.Accession;
+      rec.appendChild(title);
       map.appendChild(rec);
       }
 
