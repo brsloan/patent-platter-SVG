@@ -1,15 +1,12 @@
 var patentConverter = {
   getElasticMatrix: function(patentsJSON){
-  var twpMeas = [];
-  var rng = [];
-
-  parseTwpMeasAndRange();
-  sortTwpMeasAndRange();
 
   return mapPatents(getMapMatrix());
 
+  function getTwpMeasAndRange(){
+    var twpMeas = [];
+    var rng = [];
 
-  function parseTwpMeasAndRange(){
     patentsJSON.forEach(function(pat){
       var twpRange = pat.Twp_Rng.split(" - ");
       var thisTwpMeas = twpRange[0].charAt(3) == "N" ? parseInt(twpRange[0].slice(0,3)) : (parseInt(twpRange[0].slice(0,3)) * -1);
@@ -17,18 +14,24 @@ var patentConverter = {
       twpMeas.push(thisTwpMeas);
       rng.push(thisRng);
     });
-  }
-  function sortTwpMeasAndRange(){
+
     var uniq = [...new Set(twpMeas)];
     twpMeas = uniq;
     twpMeas.sort(function(a, b){return b - a});
     uniq = [...new Set(rng)];
     rng = uniq;
     rng.sort(function(a, b){return a - b});
+
+    return { twpMeas: twpMeas,
+            rng: rng };
+
   }
 
   function getMapMatrix(){
     var mapMatrix = [];
+    var twpMeasAndRange = getTwpMeasAndRange();
+    var twpMeas = twpMeasAndRange.twpMeas;
+    var rng = twpMeasAndRange.rng;
 
     var d1 = "N";
     var d3 = "N";
@@ -36,7 +39,7 @@ var patentConverter = {
     var tVal = twpMeas[0];
 
     for(r=0; r < getNumberOfContinuousValues(twpMeas) * 24; r++){
-      var thisRow = getMapMatrixRow(d1, d3, startingSec, tVal);
+      var thisRow = getMapMatrixRow(d1, d3, startingSec, tVal, rng);
       mapMatrix.push(thisRow);
       d1 = flipCap(d1);
       if((r + 1) % 2 === 0)
@@ -70,18 +73,7 @@ var patentConverter = {
     return measure;
   }
 
-  function shiftStartingSec(sec){
-    var startingSecs = [6,7,18,19,30,31];
-    var thisSecPosition = startingSecs.indexOf(sec);
-    var newSec;
-    if(thisSecPosition == startingSecs.length - 1)
-      newSec = startingSecs[0];
-    else
-      newSec = startingSecs[thisSecPosition + 1];
-    return newSec;
-  }
-
-  function getMapMatrixRow(positionVert, quarterVert, startingSection, twpVal){
+  function getMapMatrixRow(positionVert, quarterVert, startingSection, twpVal, rng){
     var thisRow = [];
 
     var d1 = positionVert;
@@ -124,6 +116,20 @@ var patentConverter = {
     };
   }
 
+  function convertIntsToTwpRng(thisTwp, thisRng){
+    var twpRng = "";
+    var convertedTwp = "";
+    var convertedRng = "";
+
+    convertedTwp = Math.abs(thisTwp).toString() + (thisTwp > 0 ? "N" : "S");
+    convertedRng = Math.abs(thisRng).toString() + (thisRng > 0 ? "E" : "W");
+    convertedTwp = convertedTwp.padStart(4,0);
+    convertedRng = convertedRng.padStart(4,0);
+
+    twpRng = convertedTwp + " - " + convertedRng;
+
+    return twpRng;
+  }
 
   function flipCap(dir){
 
@@ -183,6 +189,17 @@ var patentConverter = {
     return newVal;
   }
 
+  function shiftStartingSec(sec){
+    var startingSecs = [6,7,18,19,30,31];
+    var thisSecPosition = startingSecs.indexOf(sec);
+    var newSec;
+    if(thisSecPosition == startingSecs.length - 1)
+      newSec = startingSecs[0];
+    else
+      newSec = startingSecs[thisSecPosition + 1];
+    return newSec;
+  }
+
   function shiftTwpVal(oldVal){
     var newVal;
     if(oldVal == 1)
@@ -190,22 +207,6 @@ var patentConverter = {
     else
       newVal = oldVal - 1;
     return newVal;
-  }
-
-
-  function convertIntsToTwpRng(thisTwp, thisRng){
-    var twpRng = "";
-    var convertedTwp = "";
-    var convertedRng = "";
-
-    convertedTwp = Math.abs(thisTwp).toString() + (thisTwp > 0 ? "N" : "S");
-    convertedRng = Math.abs(thisRng).toString() + (thisRng > 0 ? "E" : "W");
-    convertedTwp = convertedTwp.padStart(4,0);
-    convertedRng = convertedRng.padStart(4,0);
-
-    twpRng = convertedTwp + " - " + convertedRng;
-
-    return twpRng;
   }
 
   function mapPatents(matrix){
