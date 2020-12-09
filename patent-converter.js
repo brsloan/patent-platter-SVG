@@ -2,13 +2,12 @@ var patentConverter = {
   getElasticMatrix: function(patentsJSON){
   var twpMeas = [];
   var rng = [];
-  var masterMatrix = [];
-  //"022N - 002W"
+
   parseTwpMeasAndRange();
   sortTwpMeasAndRange();
-  fillMasterMatrix();
-  var flatMatrix = flattenMasterMatrix();
-  return mapPatents(flatMatrix);
+
+  return mapPatents(getMapMatrix());
+
 
   function parseTwpMeasAndRange(){
     patentsJSON.forEach(function(pat){
@@ -28,49 +27,171 @@ var patentConverter = {
     rng.sort(function(a, b){return a - b});
   }
 
-  function fillMasterMatrix(){
-    twpMeas.forEach(function(thisTwpMeas){
-      var thisRow = [];
-      rng.forEach(function(thisRng){
-        //thisRow.push(convertIntsToTwpRng(thisTwpMeas, thisRng));
-        var thisTwp = convertIntsToTwpRng(thisTwpMeas, thisRng);
-        var matchingPatents = patentsJSON.filter(function(pat){
-          return pat.Twp_Rng == thisTwp;
-        });
-        thisRow.push(getTownshipMatrix(matchingPatents, thisTwp));
-      });
-      masterMatrix.push(thisRow);
-    });
+  function getMapMatrix(){
+    var mapMatrix = [];
+
+    var d1 = "N";
+    var d3 = "N";
+    var startingSec = 6;
+    var tVal = twpMeas[0];
+
+    for(r=0; r < getNumberOfContinuousValues(twpMeas) * 24; r++){
+      var thisRow = getMapMatrixRow(d1, d3, startingSec, tVal);
+      mapMatrix.push(thisRow);
+      d1 = flipCap(d1);
+      if((r + 1) % 2 === 0)
+        d3 = flipCap(d3);
+      if((r + 1) % 4 === 0)
+        startingSec = shiftStartingSec(startingSec);
+      if((r + 1) % 24 === 0)
+        tVal = shiftTwpVal(tVal);
+    }
+
+    return mapMatrix;
   }
 
-  function flattenMasterMatrix(){
-    var flattenedMatrix = [];
-/*
-    masterMatrix.forEach(mmrow){
-      for(i=0;i<24;i++){
-        var totalRow = [];
-        mmrow.forEach(mtr){
-            mtr[i].forEach(sq){
-              totalRow.push(sq);
-            }
-        }
-        flattenedMatrix.push(totalRow);
-      }
-    }*/
-    masterMatrix.forEach(function(mmrow){
-      for(i=0;i<24;i++){
-        var totalRow = [];
-        mmrow.forEach(function(mtr){
-          mtr[i].forEach(function(sq){
-            totalRow.push(sq);
-          });
-        });
-        flattenedMatrix.push(totalRow);
-      }
+  function getNumberOfContinuousValues(vals){
+    //Possible Twp or Range vals +/- integers skipping zero
+    //Though arrays here are sorted, they may not contain all continuous values, so find max/min and subtract instead of using array length
+    var maxVal = vals.reduce(function(a, b) {
+      return Math.max(a, b);
+    });
+    var minVal = vals.reduce(function(a, b) {
+      return Math.min(a, b);
     });
 
-    return flattenedMatrix;
+    var diff = maxVal - minVal;
+    var measure = diff;
+
+    //If there is not a zero between the values, add 1 to difference to get total number of values including max/min
+    if(!(0 > minVal && 0 < maxVal))
+      measure = measure + 1;
+
+    return measure;
   }
+
+  function shiftStartingSec(sec){
+    var startingSecs = [6,7,18,19,30,31];
+    var thisSecPosition = startingSecs.indexOf(sec);
+    var newSec;
+    if(thisSecPosition == startingSecs.length - 1)
+      newSec = startingSecs[0];
+    else
+      newSec = startingSecs[thisSecPosition + 1];
+    return newSec;
+  }
+
+  function getMapMatrixRow(positionVert, quarterVert, startingSection, twpVal){
+    var thisRow = [];
+
+    var d1 = positionVert;
+    var d2 = "W";
+    var d3 = quarterVert;
+    var d4 = "W";
+    var sec = startingSection;
+    var tVal = twpVal;
+    var rVal = rng[0];
+    for(i=0; i < getNumberOfContinuousValues(rng) * 24; i++){
+      var thisSq = getSquare(d1.concat(d2), d3.concat(d4), sec, convertIntsToTwpRng(tVal, rVal));
+      thisRow.push(thisSq);
+      d2 = flipCap(d2);
+      if((i + 1) % 2 === 0)
+        d4 = flipCap(d4);
+      if((i + 1) % 4 === 0)
+        sec = shiftSec(sec);
+      if((i + 1) % 24 === 0)
+        rVal = shiftRangeVal(rVal);
+    }
+
+    return thisRow;
+  }
+
+  function getSquare(position, quarter, section, thisTwpRange){
+    return {
+      position: position.toLowerCase(),
+      quarter: quarter.toLowerCase(),
+      section: section,
+      township: thisTwpRange,
+      patentID: null,
+      platID: null,
+      borders: {
+        w: false,
+        n: false,
+        e: false,
+        s: false
+      },
+      conflict: false
+    };
+  }
+
+
+  function flipCap(dir){
+
+    var flipped;
+    if(dir == "N")
+      flipped = "S";
+    else if (dir=="S")
+      flipped = "N";
+    else if(dir=="W")
+      flipped = "E";
+    else if(dir=="E")
+      flipped = "W";
+    return flipped;
+  }
+
+  function shiftSec(sec){
+    //Sections are numbered in serpentine fashion in PLSS
+    var secs = [[6,5,4,3,2,1],
+                [7,8,9,10,11,12],
+                [18,17,16,15,14,13],
+                [19,20,21,22,23,24],
+                [30,29,28,27,26,25],
+                [31,32,33,34,35,36]];
+    var currentRow;
+    if(sec > 30)
+      currentRow = secs[5];
+    else if (sec > 24)
+      currentRow = secs[4];
+    else if (sec > 18)
+      currentRow = secs[3];
+    else if (sec > 12)
+      currentRow = secs[2];
+    else if (sec > 6)
+      currentRow = secs[1];
+    else
+      currentRow = secs[0];
+
+    var thisSecPosition = currentRow.indexOf(sec);
+    var newSec;
+
+    if(thisSecPosition == currentRow.length - 1)
+      newSec = currentRow[0];
+    else
+      newSec = currentRow[thisSecPosition + 1];
+
+    return newSec;
+  }
+
+  function shiftRangeVal(oldVal){
+    //PLSS skips zero in numbering Townships and Ranges
+    var newVal;
+    if(oldVal == -1)
+      newVal = 1;
+    else
+      newVal = oldVal + 1;
+
+    return newVal;
+  }
+
+  function shiftTwpVal(oldVal){
+    var newVal;
+    if(oldVal == 1)
+      newVal = -1;
+    else
+      newVal = oldVal - 1;
+    return newVal;
+  }
+
 
   function convertIntsToTwpRng(thisTwp, thisRng){
     var twpRng = "";
@@ -85,136 +206,6 @@ var patentConverter = {
     twpRng = convertedTwp + " - " + convertedRng;
 
     return twpRng;
-  }
-
-  function getTownshipMatrix(patentsJSON, thisTwpRange){
-    var township = generateBlankTownship();
-
-    return township;
-
-    function generateBlankTownship() {
-      var township = [[],
-                      [],
-                      [],
-                      [],
-                      [],
-                      []];
-      for (var i = 6; i > 0; i--) {
-        township[0].push(generateSection(i, thisTwpRange));
-      }
-      for (var i = 7; i < 13; i++) {
-        township[1].push(generateSection(i, thisTwpRange));
-      }
-      for (var i = 18; i > 12; i--) {
-        township[2].push(generateSection(i, thisTwpRange));
-      }
-      for (var i = 19; i < 25; i++) {
-        township[3].push(generateSection(i, thisTwpRange));
-      }
-      for (var i = 30; i > 24; i--) {
-        township[4].push(generateSection(i, thisTwpRange));
-      }
-      for (var i = 31; i < 37; i++) {
-        township[5].push(generateSection(i, thisTwpRange));
-      }
-
-      var townshipSquares = [];
-
-      for(var y=0;y < township.length; y++){
-        var topRow = [];
-        var secondRow = [];
-        var thirdRow = [];
-        var fourthRow = [];
-        for(var x=0; x < township[y].length; x++){
-          var squares = township[y][x].squares;
-          for(var i=0; i<4; i++){
-            topRow.push(squares[0][i]);
-            secondRow.push(squares[1][i]);
-            thirdRow.push(squares[2][i]);
-            fourthRow.push(squares[3][i]);
-          }
-
-        }
-        townshipSquares.push(topRow);
-        townshipSquares.push(secondRow);
-        townshipSquares.push(thirdRow);
-        townshipSquares.push(fourthRow);
-      }
-
-      return townshipSquares;
-    }
-
-    function generateSection(secNum, thisTwpRange) {
-      var eightCount = 0;
-      var fourCount = 0;
-      var twoCount = 0;
-      var quot = ["n","w","n","w"];
-      var squares = [];
-      var squareMatrix = [];
-
-      for(var i=0;i<16;i++){
-        if(eightCount == 8){
-          eightCount = 0;
-          quot[2] = flip(quot[2]);
-        }
-        if(fourCount == 4){
-
-          fourCount = 0;
-          quot[0] = flip(quot[0]);
-        }
-        if(twoCount == 2){
-          twoCount = 0;
-          quot[3] = flip(quot[3]);
-        }
-        if(i > 0)
-          quot[1] = flip(quot[1]);
-
-        squares.push(getSquare(quot[0].concat(quot[1]), quot[2].concat(quot[3]), secNum, thisTwpRange));
-        if(squares.length == 4){
-          squareMatrix.push(squares);
-          squares = [];
-        }
-        twoCount++;
-        fourCount++;
-        eightCount++;
-      }
-
-      return { number: secNum, squares: squareMatrix};
-    }
-
-    function flip(dir){
-      var flipped;
-      if(dir == "n")
-        flipped = "s";
-      else if (dir=="s")
-        flipped = "n";
-      else if(dir=="w")
-        flipped = "e";
-      else if(dir=="e")
-        flipped = "w";
-
-      return flipped;
-    }
-
-    function getSquare(position, quarter, section, thisTwpRange){
-      return {
-        position: position,
-        quarter: quarter,
-        section: section,
-        township: thisTwpRange,
-        patentID: null,
-        platID: null,
-        borders: {
-          w: false,
-          n: false,
-          e: false,
-          s: false
-        },
-        conflict: false
-      };
-    }
-
-
   }
 
   function mapPatents(matrix){
