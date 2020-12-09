@@ -216,7 +216,7 @@ var patentConverter = {
     });
 
     detectPlats(matrix, patentsJSON);
-
+    trimMatrix(matrix);
     return matrix;
 
     function assignSquares(pat, matrix) {
@@ -261,7 +261,6 @@ var patentConverter = {
         });
 
       }
-
       return matrix;
     }
 
@@ -405,6 +404,51 @@ var patentConverter = {
     }
   }
 
+  function trimMatrix(matrix){
+    //trim top
+    while(matrix[0].every(function(sq){
+      return sq.patentID == null;
+    })){
+      matrix.shift();
+    }
+    //trim bottom
+    while(matrix[matrix.length - 1].every(function(sq){
+      return sq.patentID == null;
+    })){
+      matrix.pop();
+    }
+    //trim left side
+    var firstColumnIsEmpty = true;
+    while(firstColumnIsEmpty){
+      for(i=0;i < matrix.length; i++){
+          if (matrix[i][0].patentID != null)
+            firstColumnIsEmpty = false;
+      }
+      if(firstColumnIsEmpty){
+        for(r=0;r<matrix.length;r++){
+          matrix[r].shift();
+        }
+      }
+    }
+    //trim right side
+    var lastColumnIsEmpty = true;
+    while(lastColumnIsEmpty){
+      for(l=0;l < matrix.length; l++){
+          if (matrix[l][matrix[l].length - 1].patentID != null)
+            lastColumnIsEmpty = false;
+      }
+      if(lastColumnIsEmpty){
+        for(m=0;m < matrix.length;m++){
+          matrix[m].pop();
+        }
+      }
+    }
+
+
+
+
+
+  }
 
   }
 };

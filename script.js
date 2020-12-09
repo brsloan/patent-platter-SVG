@@ -24,9 +24,8 @@ function fetchData(cnty) {
     .find({ County: cnty }, { limit: 5000 })
     .asArray()
     .then(docs => {
-      console.log(docs);
-    platTownship(docs);
-    //patentConverter.getElasticMatrix(docs);
+      //console.log(docs);
+      platTownship(docs);
   })
     .catch(err => {
     console.error(err);
