@@ -12,7 +12,7 @@ function platTownship(patents){
   drawPlatBorders(map, mapMatrix);
   colorPlats(map, mapMatrix, patents);
   labelPlats(map, mapMatrix, patents);
-  updateSaveSvgLink(map, "patent_map.svg");
+  //saveSVG(map, "patent_map.svg");
 }
 
 function labelPlats(map, mapMatrix, patents){
@@ -206,13 +206,16 @@ function getPatByID(id, patents){
 }
 
 
-function updateSaveSvgLink(svgEl, name) {
+function saveSVG(svgEl, name) {
     svgEl.setAttribute("xmlns", "http://www.w3.org/2000/svg");
     var svgData = svgEl.outerHTML;
     var preface = '<?xml version="1.0" standalone="no"?>\r\n';
     var svgBlob = new Blob([preface, svgData], {type:"image/svg+xml;charset=utf-8"});
     var svgUrl = URL.createObjectURL(svgBlob);
-    var downloadLink = document.getElementById("downloadLink");
+    var downloadLink = document.createElement("a");
     downloadLink.href = svgUrl;
     downloadLink.download = name;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
 }

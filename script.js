@@ -33,3 +33,6 @@ function fetchData(cnty) {
 }
 
 //Event Handlers, etc.
+document.getElementById("downloadLink").addEventListener("click", function(){
+  saveSVG(document.getElementById("map"), "patent_map.svg");
+});
