@@ -102,9 +102,13 @@ function colorPlats(map, mapMatrix, patents){
       rec.classList.add("platColor");
       rec.setAttribute("fill", color);
       rec.dataset.patID = patID;
+      rec.dataset.Accession = patent.Accession;
       var title = document.createElementNS("http://www.w3.org/2000/svg", 'title');
-      title.textContent = patent.Names + " - " + patent.Date + "\n Accession: " + patent.Accession;
+      title.textContent = patent.Names + " - " + patent.Date + "\n " + patent.Aliquots + " Sec " + patent.Sec + " " + patent.Twp_Rng + "\n Accession: " + patent.Accession;
       rec.appendChild(title);
+      rec.onclick = function(){
+        window.open("https://glorecords.blm.gov/details/patent/default.aspx?accession=" + this.dataset.Accession + "&docClass=STA");
+      };
       map.appendChild(rec);
       }
 
